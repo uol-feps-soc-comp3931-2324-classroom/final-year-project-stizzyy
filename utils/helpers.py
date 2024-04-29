@@ -24,3 +24,8 @@ def get_labelled_mask(mask, dict : dict):
     
     lab_mask = lab_mask.astype(int)
     return lab_mask
+
+
+def make_pth_dirs(path):
+    if not os.path.exists(path):
+        os.makedirs(path)

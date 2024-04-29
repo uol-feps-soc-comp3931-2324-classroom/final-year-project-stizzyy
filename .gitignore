@@ -1,4 +1,8 @@
 # VIRTUAL ENVIRONMENT
 .venv
 
+# GENERATED FILES
+models
+
+
 __pycache__

@@ -34,6 +34,7 @@ def _transform(type):
         ])
 
 class CamVid(Dataset):
+    NAME = 'camvid'
     CLASS_DICT = CLASS_DICT
 
     def __init__(self, root_path, split, transform=True):
