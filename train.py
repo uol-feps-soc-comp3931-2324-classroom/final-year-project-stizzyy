@@ -7,16 +7,20 @@ from trainer import Trainer, device
 from architectures.fcn_resnet50 import Model
 
 
-def train(model):
+def train_and_validate(model):
     trainer = Trainer(model, train_dataset, train_dataloader, val_dataset, val_dataloader)
     
     epochs = config.EPOCHS
-    for epoch in range(2):
-        print(f'EPOCH {epoch+1}')
-        train_loss = trainer.fit()
+    for epoch in range(epochs):
+        print(f'EPOCH {epoch+1}/{epochs}')
+        print('-' * 10)
+        train_loss, train_mIoU = trainer.fit()
+        val_loss, val_mIoU = trainer.validate(epoch)
 
-        if epoch % 5 == 0:
+        if epoch % config.SAVE_CHECKPOINT == 0:
             trainer.save_checkpoint(epoch)
+        
+        print()
 
     trainer.save_model()
         
@@ -27,4 +31,4 @@ if __name__ == '__main__':
     model = Model()
     model = model.to(device)
 
-    train(model)
+    train_and_validate(model)

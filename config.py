@@ -1,5 +1,5 @@
-EPOCHS = 75
-#SAVE_EVERY = 5 # after how many epochs to save a checkpoint
+EPOCHS = 50 # changeable
+SAVE_CHECKPOINT = 5 # after how many epochs to save a checkpoint
 #LOG_EVERY = 5 # log training and validation metrics every `LOG_EVERY` epochs
 BATCH_SIZE = 16
 DEVICE = 'cuda' # gpu
