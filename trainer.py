@@ -47,6 +47,7 @@ class Trainer:
         batch_counter = 0
 
         train_loss = 0
+        train_acc_correct, train_acc_label = 0, 0
         train_acc_I, train_acc_U = 0, 0
 
         for i, (input, label) in enumerate(progress_bar):
@@ -67,9 +68,13 @@ class Trainer:
                 # loss
                 train_loss += loss.item()
 
-                train_I, train_U = eval_metrics(output.data, torch.tensor(label), self.num_classes)
+                train_C, train_L, train_I, train_U = eval_metrics(output.data, label.clone().detach(), self.num_classes)
                 train_I = torch.from_numpy(train_I).to(device)
                 train_U = torch.from_numpy(train_U).to(device)
+
+                # Pixel Accuracy
+                train_acc_correct += train_C
+                train_acc_label += train_L
 
                 # IoU
                 train_acc_I += train_I
@@ -79,24 +84,33 @@ class Trainer:
                 loss.backward()
                 self.optimizer.step()
 
-            progress_bar.set_description(f'TRAINING loss: {loss:.3f} | {train_loss/batch_counter:.3f}')
+                # LOGGING
+                train_curr_pixaccuracy = 1.0 * train_C / (np.spacing(1) + train_L)
+
+                train_curr_iou = 1.0 * train_I / (np.spacing(1) + train_U)
+                train_curr_miou = train_curr_iou.mean()
+
+                progress_bar.set_description(f'TRAINING-- loss: {loss:.3f} | pix acc: {train_curr_pixaccuracy:.3f} | mIoU: {train_curr_miou:.3f}')
 
         print()
 
         # loss
-        train_average_loss = train_loss / batch_counter
+        t_loss = train_loss / batch_counter
+
+        # pixel accuracy
+        pix_acc = 1.0 * train_acc_correct / (np.spacing(1) + train_acc_label) # spacing to ensure non-zero union
 
         # mean intersection over union
         IoU = 1.0 * train_acc_I / (np.spacing(1) + train_acc_U) # spacing to ensure non-zero union
-        mIoU = IoU.mean()
+        mIoU = IoU.mean().cpu().numpy().min()
 
-
-        return train_average_loss, mIoU
+        return t_loss, pix_acc, mIoU
 
     def validate(self, epoch):
         self.model.eval()
 
         val_loss = 0
+        val_acc_correct, val_acc_label = 0, 0
         val_acc_I, val_acc_U = 0, 0
 
         batch_counter = 0
@@ -128,26 +142,38 @@ class Trainer:
                 # loss
                 val_loss += loss.item()
 
-                val_I, val_U = eval_metrics(output.data, torch.tensor(label), self.num_classes)
+                val_C, val_L, val_I, val_U = eval_metrics(output.data, label.clone().detach(), self.num_classes)
                 val_I = torch.from_numpy(val_I).to(device)
                 val_U = torch.from_numpy(val_U).to(device)
+
+                # pixel accuracy
+                val_acc_correct += val_C
+                val_acc_label += val_L
 
                 # IoU
                 val_acc_I += val_I
                 val_acc_U += val_U
 
-                progress_bar.set_description(desc=f'VALIDATE loss: {loss:.3f} | {val_loss/batch_counter:.3f}')
+                # LOGGING
+                val_curr_pixaccuracy = 1.0 * val_C / (np.spacing(1) + val_L)
+
+                val_curr_iou = 1.0 * val_I / (np.spacing(1) + val_U)
+                val_curr_miou = val_curr_iou.mean()
+
+                progress_bar.set_description(f'VALIDATION-- loss: {loss:.3f} | pix acc: {val_curr_pixaccuracy:.3f} | mIoU: {val_curr_miou:.3f}')
             
         print()
         
         # loss 
-        val_average_loss = val_loss/batch_counter
+        v_loss = val_loss/batch_counter
 
+        # pixel accuracy
+        pix_acc = 1.0 * val_acc_correct / (np.spacing(1) + val_acc_label) # spacing to ensure non-zero union
         # mean intersection over union
         IoU = 1.0 * val_acc_I / (np.spacing(1) + val_acc_U) # spacing to ensure non-zero union
-        mIoU = IoU.mean()
+        mIoU = IoU.mean().cpu().numpy().min()
 
-        return val_average_loss, mIoU
+        return v_loss, pix_acc, mIoU
 
     def save_checkpoint(self, epoch):
         print(f'SAVING CHECKPOINT ON EPOCH {epoch+1}')

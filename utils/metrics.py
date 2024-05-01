@@ -4,6 +4,14 @@ import numpy as np
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # https://github.com/yassouali/pytorch_segmentation/blob/master/utils/metrics.py
+def pix_accuracy(preds, gt, labelled_gt):
+    # number of labelled pixels
+    pixel_labeled = labelled_gt.to(device).sum()
+    # number of correctly predicted pixels
+    pixel_correct = ((preds == gt.to(device)) * labelled_gt).sum()
+    return pixel_correct.cpu().numpy(), pixel_labeled.cpu().numpy()
+
+
 def iou(preds, gt, labelled_gt, num_classes=32):
     # filter out invalid pixels
     preds = preds * labelled_gt.to(device).long()
@@ -29,7 +37,8 @@ def eval_metrics(output, gt, num_classes=32):
 
     # filtered ground truths
     labelled_gt = (gt > 0) * (gt <= num_classes)
+    correct, labelled = pix_accuracy(preds, gt, labelled_gt.to(device))
     intersection, union = iou(preds, gt, labelled_gt.to(device))
 
-    return np.round(intersection, 4), np.round(union, 4)
+    return np.round(correct, 4), np.round(labelled, 4), np.round(intersection, 4), np.round(union, 4)
 

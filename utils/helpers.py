@@ -91,8 +91,12 @@ def draw_seg_map(input, gt, output, epoch):
     rgb_mask = cv2.cvtColor(rgb_mask, cv2.COLOR_RGB2BGR)
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
     
-    # APPEND GROUND TRUTH IN DIRECTORY
+    # INITIALIZATION
     if epoch == 0:
+        # ORIGINAL IMAGE
+        cv2.imwrite(os.path.join(DIR_PATHS["seg_map_path"], f'_original.jpg'), image)
+
+        # GROUND TRUTH
         gt = gt[0] # first batch
         gt = gt.cpu().numpy()
 
@@ -115,9 +119,10 @@ def draw_seg_map(input, gt, output, epoch):
 
         gt = np.array(np.stack([gt_r, gt_g, gt_b], axis=2), dtype=np.float32)
         gt = cv2.cvtColor(gt, cv2.COLOR_RGB2BGR)
-
+        
+        cv2.imwrite(os.path.join(DIR_PATHS["seg_map_path"], f'_gt.jpg'), gt)
         cv2.addWeighted(gt, a, image, b, y, gt)
-        cv2.imwrite(os.path.join(DIR_PATHS["seg_map_path"], f'gt.jpg'), gt)
+        cv2.imwrite(os.path.join(DIR_PATHS["seg_map_path"], f'_combined.jpg'), gt)
 
     # linear blend operator
     cv2.addWeighted(rgb_mask, a, image, b, y, image)
