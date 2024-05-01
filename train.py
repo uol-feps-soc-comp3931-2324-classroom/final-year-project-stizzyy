@@ -1,6 +1,6 @@
 import config
 
-from utils.helpers import make_pth_dirs
+from utils.helpers import make_dirs
 from camvid import train_dataset, train_dataloader
 from camvid import val_dataset, val_dataloader
 from trainer import Trainer, device
@@ -27,7 +27,7 @@ def train_and_validate(model):
 
 
 if __name__ == '__main__':
-    make_pth_dirs(Trainer.CHECKPOINT_PATH)
+    make_dirs()
     model = Model()
     model = model.to(device)
 

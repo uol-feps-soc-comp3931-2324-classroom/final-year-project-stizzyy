@@ -3,6 +3,7 @@ import numpy as np
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+# https://github.com/yassouali/pytorch_segmentation/blob/master/utils/metrics.py
 def iou(preds, gt, labelled_gt, num_classes=32):
     # filter out invalid pixels
     preds = preds * labelled_gt.to(device).long()

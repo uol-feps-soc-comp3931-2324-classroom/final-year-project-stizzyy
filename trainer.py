@@ -6,6 +6,7 @@ from tqdm import tqdm
 
 import config
 from camvid import CamVid
+from utils.helpers import draw_seg_map
 from utils.metrics import eval_metrics
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -116,9 +117,11 @@ class Trainer:
                 output = self.model(input)['out']
 
                 # ... draw segmentation map
+                # on last batch
+                if i == n_iterations - 1:
+                    draw_seg_map(input, label, output, epoch)
 
-
-                # COMPUTE LOSS 
+                # COMPUTE LOSS
                 loss = self.criterion(output, label)
             
                 # EVALUATE METRICS

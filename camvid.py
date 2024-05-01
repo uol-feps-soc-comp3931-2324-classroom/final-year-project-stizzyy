@@ -9,7 +9,6 @@ from PIL import Image
 from utils.helpers import CLASS_DICT, get_labelled_mask
 import config
 
-
 # https://github.com/uygarkurt/UNet-PyTorch/blob/main/carvana_dataset.py
 
 def parse_images(root_path, split):
@@ -35,7 +34,6 @@ def _transform(type):
 
 class CamVid(Dataset):
     NAME = 'camvid'
-    CLASS_DICT = CLASS_DICT
 
     def __init__(self, root_path, split, transform=True):
         self.root_path = root_path
@@ -61,7 +59,7 @@ class CamVid(Dataset):
             label = self.label_transform(image=label)['image']
 
         # RGB mask -> ONE-HOT-LIKE encoded mask
-        label = get_labelled_mask(label, CLASS_DICT)
+        label = get_labelled_mask(label)
             
         # image: HWC -> torch: CHW
         image = np.transpose(image, (2, 0, 1))
