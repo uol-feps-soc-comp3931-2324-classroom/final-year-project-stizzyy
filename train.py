@@ -1,6 +1,7 @@
 import config
 
 from utils.helpers import make_dirs
+from utils.visualization import create_metrics_viz
 from camvid import train_dataset, train_dataloader
 from camvid import val_dataset, val_dataloader
 from trainer import Trainer, device
@@ -13,6 +14,8 @@ def train_and_validate(model):
     loss = { 'train' : [], 'val' : [] }
     pix_acc = { 'train' : [], 'val' : [] }
     mIoU = { 'train' : [], 'val' : [] }
+
+    metrics = [loss, pix_acc, mIoU]
 
     epochs = config.EPOCHS
     for epoch in range(epochs):
@@ -29,6 +32,8 @@ def train_and_validate(model):
         
         mIoU['train'].append(train_mIoU)
         mIoU['val'].append(val_mIoU)
+
+        create_metrics_viz(metrics, epochs, model.name)
 
         if epoch % config.SAVE_CHECKPOINT == 0:
             trainer.save_checkpoint(epoch)

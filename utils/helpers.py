@@ -23,7 +23,8 @@ CLASS_DICT = make_class_dict()
 
 DIR_PATHS = {
     'checkpoint_path' : 'models/checkpoints',
-    'seg_map_path' : 'models/seg_maps'
+    'seg_map_path' : 'models/seg_maps',
+    'vis_path' : 'models/viz'
 } 
 
 def make_dirs(paths : dict = DIR_PATHS):
@@ -43,6 +44,10 @@ def get_labelled_mask(mask):
 
 # https://github.com/sovit-123/CamVid-Image-Segmentation-using-FCN-ResNet50-with-PyTorch/blob/master/utils/helpers.py#L89
 def draw_seg_map(input, gt, output, epoch):
+    # render the map every 5 epochs
+    if epoch % 5 != 0:
+        return
+    
     # original image is derived from input
     # prediction segmentation mask derived from output
     num_classes = output[0].shape[0]
