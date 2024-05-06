@@ -22,8 +22,8 @@ def _transform(type):
         return Compose([
             Resize(224, 224, always_apply=True),
             Normalize(
-                mean=[0.45734706, 0.43338275, 0.40058118],
-                std=[0.23965294, 0.23532275, 0.2398498],
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225],
                 always_apply=True
             )
         ])

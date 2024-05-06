@@ -5,25 +5,35 @@ import os
 from tqdm import tqdm
 
 import config
-from camvid import CamVid
 from utils.helpers import draw_seg_map
 from utils.metrics import eval_metrics
+from torchvision.models.segmentation import FCN
+from models.pspnet import PSPNet
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 class Trainer:
-    MODEL_PATH = 'models/'
-    CHECKPOINT_PATH = 'models/checkpoints'
+    GEN_PATH = 'gen'
+    CHECKPOINT_PATH = 'checkpoints'
+    SEGMAP_PATH = 'segmaps'
+    VIZ_PATH = 'viz'
 
-    def __init__(self,
-                 model, 
+    def __init__(self, model, 
                  train_dataset, train_dataloader,
                  val_dataset, val_dataloader,
                  epochs=config.EPOCHS, lr=config.LR,
                  num_classes=len(config.CLASSES_TO_TRAIN)
                  ):
-        self.model = model
+        self.model = model # do not use self.model for fit and validate
+
+        self.FULL_GEN_PATH = os.path.join(self.GEN_PATH, self.model.name)
+        self.FULL_CHECKPOINT_PATH = os.path.join(self.GEN_PATH, self.model.name, self.CHECKPOINT_PATH)
+        self.FULL_SEGMAP_PATH = os.path.join(self.GEN_PATH, self.model.name, self.SEGMAP_PATH)
+        self.FULL_VIZ_PATH = os.path.join(self.GEN_PATH, self.model.name, self.VIZ_PATH)
+
+        for path in [self.FULL_GEN_PATH, self.FULL_CHECKPOINT_PATH, self.FULL_SEGMAP_PATH, self.FULL_VIZ_PATH]:
+            os.makedirs(path, exist_ok=True)
 
         self.train_dataset = train_dataset
         self.train_dataloader = train_dataloader
@@ -38,15 +48,15 @@ class Trainer:
 
         self.num_classes = num_classes
 
-    def fit(self):
-        self.model.train()
+    def fit(self, model):
+        model.train()
 
-        n_iterations = int(len(self.train_dataset)/self.train_dataloader.batch_size)
+        n_iterations = len(self.train_dataset)//self.train_dataloader.batch_size
         progress_bar = tqdm(self.train_dataloader, total=n_iterations)
 
         batch_counter = 0
 
-        train_loss = 0
+        train_loss, train_aux_loss, aux_loss = 0, 0, -1
         train_acc_correct, train_acc_label = 0, 0
         train_acc_I, train_acc_U = 0, 0
 
@@ -59,15 +69,21 @@ class Trainer:
             self.optimizer.zero_grad()
 
             with torch.autograd.set_detect_anomaly(True):
-                output = self.model(input)['out']
+                if isinstance(model, FCN):
+                    output = model(input)['out']
 
-                # COMPUTE LOSS 
-                loss = self.criterion(output, label)
+                    # COMPUTE LOSS 
+                    loss = self.criterion(output, label)
+                
+                elif isinstance(model, PSPNet):
+                    output, loss, aux_loss = model(input, label.long())
 
-                # EVALUATE METRICS
-                # loss
+                    # COMPUTE LOSS
+                    train_aux_loss += aux_loss.item()
+
                 train_loss += loss.item()
 
+                # EVALUATE METRICS
                 train_C, train_L, train_I, train_U = eval_metrics(output.data, label.clone().detach(), self.num_classes)
                 train_I = torch.from_numpy(train_I).to(device)
                 train_U = torch.from_numpy(train_U).to(device)
@@ -90,12 +106,13 @@ class Trainer:
                 train_curr_iou = 1.0 * train_I / (np.spacing(1) + train_U)
                 train_curr_miou = train_curr_iou.mean()
 
-                progress_bar.set_description(f'TRAINING-- loss: {loss:.3f} | pix acc: {train_curr_pixaccuracy:.3f} | mIoU: {train_curr_miou:.3f}')
+                progress_bar.set_description(f'TRAINING-- loss: {loss:.3f} | aux loss: {aux_loss:.3f} | pix acc: {train_curr_pixaccuracy:.3f} | mIoU: {train_curr_miou:.3f}')
 
         print()
 
         # loss
         t_loss = train_loss / batch_counter
+        t_aux_loss = train_aux_loss / batch_counter
 
         # pixel accuracy
         pix_acc = 1.0 * train_acc_correct / (np.spacing(1) + train_acc_label) # spacing to ensure non-zero union
@@ -104,10 +121,13 @@ class Trainer:
         IoU = 1.0 * train_acc_I / (np.spacing(1) + train_acc_U) # spacing to ensure non-zero union
         mIoU = IoU.mean().cpu().numpy().min()
 
-        return t_loss, pix_acc, mIoU
+        if isinstance(model, PSPNet):
+            return t_loss, t_aux_loss, pix_acc, mIoU
+        else:
+            return t_loss, pix_acc, mIoU
 
-    def validate(self, epoch):
-        self.model.eval()
+    def validate(self, model, epoch):
+        model.eval()
 
         val_loss = 0
         val_acc_correct, val_acc_label = 0, 0
@@ -128,12 +148,14 @@ class Trainer:
 
                 self.optimizer.zero_grad()
 
-                output = self.model(input)['out']
+                output = model(input)
+                if isinstance(model, FCN):
+                    output = output['out']
 
                 # ... draw segmentation map
                 # on last batch
                 if i == n_iterations - 1:
-                    draw_seg_map(input, label, output, epoch)
+                    draw_seg_map(input, label, output, epoch, path=self.FULL_SEGMAP_PATH)
 
                 # COMPUTE LOSS
                 loss = self.criterion(output, label)
@@ -183,12 +205,12 @@ class Trainer:
             'optimizer_state_dict' : self.optimizer.state_dict(),
             'loss' : self.criterion
         },  
-            os.path.join(self.CHECKPOINT_PATH, f'{CamVid.NAME}_{epoch}.pth')
+            os.path.join(self.FULL_CHECKPOINT_PATH, f'e_{epoch}.pth')
         )
     
     def save_model(self):
         print(f'SAVING MODEL')
         torch.save(
             self.model.state_dict(), 
-            os.path.join(self.MODEL_PATH, f'{CamVid.NAME}_FINAL.pth')
+            os.path.join(self.FULL_GEN_PATH, f'e_FINAL.pth')
         )

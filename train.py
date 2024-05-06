@@ -1,11 +1,12 @@
 import config
+from torchvision.models.segmentation import FCN
 
-from utils.helpers import make_dirs
 from utils.visualization import create_metrics_viz
 from camvid import train_dataset, train_dataloader
 from camvid import val_dataset, val_dataloader
-from trainer import Trainer, device
-from architectures.fcn_resnet50 import Model
+from trainer import Trainer
+from models.fcn_resnet50 import fcn_resnet_model
+from models.pspnet import psp_model, PSPNet
 
 
 def train_and_validate(model):
@@ -18,11 +19,17 @@ def train_and_validate(model):
     metrics = [loss, pix_acc, mIoU]
 
     epochs = config.EPOCHS
-    for epoch in range(epochs):
+    for epoch in range(epochs+1):
+       
         print(f'EPOCH {epoch+1}/{epochs}')
         print('-' * 10)
-        train_loss, train_pix_acc, train_mIoU = trainer.fit()
-        val_loss, val_pix_acc, val_mIoU = trainer.validate(epoch)
+
+        if isinstance(trainer.model, FCN):
+            train_loss, train_pix_acc, train_mIoU = trainer.fit(model)
+        elif isinstance(trainer.model, PSPNet):
+            train_loss, train_aux_loss, train_pix_acc, train_mIoU = trainer.fit(model)
+
+        val_loss, val_pix_acc, val_mIoU = trainer.validate(model, epoch)
 
         loss['train'].append(train_loss)
         loss['val'].append(val_loss)
@@ -33,7 +40,7 @@ def train_and_validate(model):
         mIoU['train'].append(train_mIoU)
         mIoU['val'].append(val_mIoU)
 
-        create_metrics_viz(metrics, epochs, model.name)
+        create_metrics_viz(metrics, epochs, trainer)
 
         if epoch % config.SAVE_CHECKPOINT == 0:
             trainer.save_checkpoint(epoch)
@@ -45,8 +52,5 @@ def train_and_validate(model):
 
 
 if __name__ == '__main__':
-    make_dirs()
-    model = Model()
-    model = model.to(device)
-
-    train_and_validate(model)
+    train_and_validate(fcn_resnet_model)
+    train_and_validate(psp_model)

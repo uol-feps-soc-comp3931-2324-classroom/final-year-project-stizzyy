@@ -1,10 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
+#import seaborn as sns
 import os
 
 
-def visualize_loss(loss : dict, epochs, model_name):
+def visualize_loss(loss : dict, epochs, model_name, path):
     t_loss = np.array(loss['train'])
     v_loss = np.array(loss['val'])
     x = np.arange(len(loss['train']))
@@ -24,9 +24,9 @@ def visualize_loss(loss : dict, epochs, model_name):
 
     fig.suptitle(f'{model_name.upper()} Training/Validation Loss')
 
-    fig.savefig(f'models/viz/{model_name}_loss.png')
+    fig.savefig(os.path.join(path, 'loss.png'))
 
-def visualize_pixacc(pix_acc : dict, epochs, model_name):
+def visualize_pixacc(pix_acc : dict, epochs, model_name, path):
     t_pix_acc = np.array(pix_acc['train']) * 100
     v_pix_acc = np.array(pix_acc['val']) * 100
     x = np.arange(len(pix_acc['train']))
@@ -46,9 +46,9 @@ def visualize_pixacc(pix_acc : dict, epochs, model_name):
 
     fig.suptitle(f'{model_name.upper()} Training/Validation Pixel Accuracy %')
 
-    fig.savefig(f'models/viz/{model_name}_pix_acc.png')
+    fig.savefig(os.path.join(path, 'pix_acc.png'))
 
-def visualize_mIoU(miou : dict, epochs, model_name):
+def visualize_mIoU(miou : dict, epochs, model_name, path):
     t_miou = np.array(miou['train'])
     v_miou = np.array(miou['val'])
     x = np.arange(len(miou['train']))
@@ -68,10 +68,12 @@ def visualize_mIoU(miou : dict, epochs, model_name):
 
     fig.suptitle(f'{model_name.upper()} Training/Validation mIoU')
 
-    fig.savefig(f'models/viz/{model_name}_mIoU.png')
+    fig.savefig(os.path.join(path, 'mIoU.png'))
 
 
-def create_metrics_viz(metrics_list : list, epochs, model_name):
-    visualize_loss(metrics_list[0], epochs, model_name)
-    visualize_pixacc(metrics_list[1], epochs, model_name)
-    visualize_mIoU(metrics_list[2], epochs, model_name)
+def create_metrics_viz(metrics_list : list, epochs, trainer):
+    model_name = trainer.model.name
+    path = trainer.FULL_VIZ_PATH
+    visualize_loss(metrics_list[0], epochs, model_name, path)
+    visualize_pixacc(metrics_list[1], epochs, model_name, path)
+    visualize_mIoU(metrics_list[2], epochs, model_name, path)

@@ -21,17 +21,6 @@ def make_class_dict(path = DATASET_PATH):
 CLASS_DICT = make_class_dict()
 
 
-DIR_PATHS = {
-    'checkpoint_path' : 'models/checkpoints',
-    'seg_map_path' : 'models/seg_maps',
-    'vis_path' : 'models/viz'
-} 
-
-def make_dirs(paths : dict = DIR_PATHS):
-    for path in paths.values():
-        os.makedirs(path, exist_ok=True)
-
-
 # https://github.com/sovit-123/CamVid-Image-Segmentation-using-FCN-ResNet50-with-PyTorch/blob/master/utils/helpers.py#L74
 def get_labelled_mask(mask):
     lab_mask = np.zeros((mask.shape[0], mask.shape[1]), dtype=np.uint8)
@@ -42,8 +31,9 @@ def get_labelled_mask(mask):
     lab_mask = lab_mask.astype(int)
     return lab_mask
 
+
 # https://github.com/sovit-123/CamVid-Image-Segmentation-using-FCN-ResNet50-with-PyTorch/blob/master/utils/helpers.py#L89
-def draw_seg_map(input, gt, output, epoch):
+def draw_seg_map(input, gt, output, epoch, path):
     # render the map every 5 epochs
     if epoch % 5 != 0:
         return
@@ -67,8 +57,8 @@ def draw_seg_map(input, gt, output, epoch):
     image = image.cpu().numpy()
     # untransform image
     image = np.transpose(image, (1, 2, 0))
-    mean = np.array([0.45734706, 0.43338275, 0.40058118])
-    std = np.array([0.23965294, 0.23532275, 0.2398498])
+    mean = np.array([0.485, 0.456, 0.406])
+    std = np.array([0.229, 0.224, 0.225])
     image = std * image + mean
     image = image.astype(dtype=np.float32)
     # rescale colour: 0-1 -> 0-255
@@ -99,7 +89,7 @@ def draw_seg_map(input, gt, output, epoch):
     # INITIALIZATION
     if epoch == 0:
         # ORIGINAL IMAGE
-        cv2.imwrite(os.path.join(DIR_PATHS["seg_map_path"], f'_original.jpg'), image)
+        cv2.imwrite(os.path.join(path, f'_original.jpg'), image)
 
         # GROUND TRUTH
         gt = gt[0] # first batch
@@ -125,10 +115,10 @@ def draw_seg_map(input, gt, output, epoch):
         gt = np.array(np.stack([gt_r, gt_g, gt_b], axis=2), dtype=np.float32)
         gt = cv2.cvtColor(gt, cv2.COLOR_RGB2BGR)
         
-        cv2.imwrite(os.path.join(DIR_PATHS["seg_map_path"], f'_gt.jpg'), gt)
+        cv2.imwrite(os.path.join(path, f'_gt.jpg'), gt)
         cv2.addWeighted(gt, a, image, b, y, gt)
-        cv2.imwrite(os.path.join(DIR_PATHS["seg_map_path"], f'_combined.jpg'), gt)
+        cv2.imwrite(os.path.join(path, f'_combined.jpg'), gt)
 
     # linear blend operator
     cv2.addWeighted(rgb_mask, a, image, b, y, image)
-    cv2.imwrite(os.path.join(DIR_PATHS["seg_map_path"], f'smap_e{epoch+1}.jpg'), image)
+    cv2.imwrite(os.path.join(path, f'smap_e{epoch}.jpg'), image)
