@@ -1,8 +1,8 @@
 # VIRTUAL ENVIRONMENT
-.venv
+torch
 
 # GENERATED FILES
-models
+gen
 
 
 __pycache__
