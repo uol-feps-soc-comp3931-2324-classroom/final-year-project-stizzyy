@@ -70,22 +70,28 @@ class PSPM(nn.Module):
 class PSPNet(nn.Module):
     name = 'pspnet'
 
-    def __init__(self, layers=50, bins=(1, 2, 3, 6), num_classes=32, use_ppm=True, resize=(224, 224), pretrained=True):
+    def __init__(self, layers=50, bins=(1, 2, 3, 6), num_classes=32, use_deep_backbone=True, use_ppm=True, resize=(224, 224), pretrained=True):
         super(PSPNet, self).__init__()
+        self.use_deep_backbone = use_deep_backbone
         self.use_ppm = use_ppm
         self.resize = resize
         self.dropout = 0.1
         self.criterion = nn.CrossEntropyLoss(ignore_index=255).cuda()
 
         if layers == 50: # so far only support resnet50
-           backbone =  resnet50(pretrained=pretrained)
+           backbone =  resnet50(pretrained=pretrained, use_deep_backbone=self.use_deep_backbone)
         
-        self.layer0 = nn.Sequential(
-            backbone.conv1, backbone.bn1, backbone.relu,
-            backbone.conv2, backbone.bn2, backbone.relu,
-            backbone.conv3, backbone.bn3, backbone.relu,
-            backbone.maxpool
-        )
+        if not self.use_deep_backbone:
+            self.layer0 = nn.Sequential(
+                backbone.conv1, backbone.bn1, backbone.relu, backbone.maxpool
+            )
+        else:
+            self.layer0 = nn.Sequential(
+                backbone.conv1, backbone.bn1, backbone.relu,
+                backbone.conv2, backbone.bn2, backbone.relu,
+                backbone.conv3, backbone.bn3, backbone.relu,
+                backbone.maxpool
+            )
         self.layer1 = backbone.layer1
         self.layer2 = backbone.layer2
         self.layer3 = backbone.layer3
@@ -142,4 +148,4 @@ class PSPNet(nn.Module):
             return x
             
 
-psp_model = PSPNet(layers=50, bins=(1, 2, 3, 6), use_ppm=True, pretrained=False).to(device)
+psp_model = PSPNet(layers=50, bins=(1, 2, 3, 6), use_deep_backbone=False, use_ppm=True, pretrained=True).to(device)
