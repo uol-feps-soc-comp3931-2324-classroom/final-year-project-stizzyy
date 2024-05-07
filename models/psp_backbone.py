@@ -126,5 +126,5 @@ class Resnet(nn.Module):
 def resnet50(pretrained=False, use_deep_backbone=True):
     model = Resnet(Bottleneck, [3, 4, 6, 3], use_deep_backbone=use_deep_backbone)
     if pretrained:
-        model.load_state_dict(model_zoo.load_url('https://download.pytorch.org/models/resnet50-19c8e357.pth'))
+        model.load_state_dict(model_zoo.load_url('https://download.pytorch.org/models/resnet50-11ad3fa6.pth'))
     return model

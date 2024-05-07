@@ -13,7 +13,7 @@ def model():
 class FCN_ResNet50:
     def __init__(self, weights=None, requires_grad=True):
         self.weights = weights
-        self.model = models.segmentation.fcn_resnet50(weights_backbone=ResNet50_Weights.IMAGENET1K_V1, progress=True)
+        self.model = models.segmentation.fcn_resnet50(weights_backbone=ResNet50_Weights.IMAGENET1K_V2, progress=True)
         
         self.model.requires_grad = requires_grad
         for param in self.model.parameters():

@@ -148,4 +148,4 @@ class PSPNet(nn.Module):
             return x
             
 
-psp_model = PSPNet(layers=50, bins=(1, 2, 3, 6), use_deep_backbone=False, use_ppm=True, pretrained=True).to(device)
+psp_model = PSPNet(layers=50, bins=(1, 2, 3, 6), use_deep_backbone=False, use_ppm=True, resize=(224, 224), pretrained=True).to(device)
