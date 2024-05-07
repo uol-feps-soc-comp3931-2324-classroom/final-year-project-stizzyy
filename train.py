@@ -21,7 +21,7 @@ def train_and_validate(model):
     epochs = config.EPOCHS
     for epoch in range(epochs+1):
        
-        print(f'EPOCH {epoch+1}/{epochs}')
+        print(f'EPOCH {epoch+1}/{epochs+1}')
         print('-' * 10)
 
         if isinstance(trainer.model, FCN):
@@ -52,5 +52,5 @@ def train_and_validate(model):
 
 
 if __name__ == '__main__':
+    #train_and_validate(psp_model)
     train_and_validate(fcn_resnet_model)
-    train_and_validate(psp_model)

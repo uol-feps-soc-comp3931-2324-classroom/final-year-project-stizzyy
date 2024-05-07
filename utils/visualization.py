@@ -77,3 +77,4 @@ def create_metrics_viz(metrics_list : list, epochs, trainer):
     visualize_loss(metrics_list[0], epochs, model_name, path)
     visualize_pixacc(metrics_list[1], epochs, model_name, path)
     visualize_mIoU(metrics_list[2], epochs, model_name, path)
+    plt.close('all')
