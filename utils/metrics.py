@@ -12,7 +12,7 @@ def pix_accuracy(preds, gt, labelled_gt):
     return pixel_correct.cpu().numpy(), pixel_labeled.cpu().numpy()
 
 
-def iou(preds, gt, labelled_gt, num_classes=32):
+def iou(preds, gt, labelled_gt, num_classes=32, ret_iou_list=False):
     # filter out invalid pixels
     preds = preds * labelled_gt.to(device).long()
     # compute intersection. if match then 1, otherwise 0
@@ -26,10 +26,25 @@ def iou(preds, gt, labelled_gt, num_classes=32):
     # compute union
     area_union = area_preds + area_gt - area_inter
 
-    return area_inter.cpu().numpy(), area_union.cpu().numpy()
+    # convert to numpy array
+    area_inter = area_inter.cpu().numpy()
+    area_union = area_union.cpu().numpy()
+    iou_list = None
+    if ret_iou_list:
+        iou_list = []
+        
+        area_inter = list(area_inter)
+        area_union = list(area_union)
+
+        for i in range(num_classes):
+            # append intersection, union for each class label
+            iou_list.append((area_inter[i], area_union[i]))
+        iou_list = np.array(iou_list)
+    
+    return area_inter, area_union, iou_list
 
 
-def eval_metrics(output, gt, num_classes=32):
+def eval_metrics(output, gt, num_classes=32, ret_iou_list=False):
     # _, index = predictions class labels
     _, preds = torch.max(output, dim=1)
     preds += 1
@@ -38,7 +53,7 @@ def eval_metrics(output, gt, num_classes=32):
     # filtered ground truths
     labelled_gt = (gt > 0) * (gt <= num_classes)
     correct, labelled = pix_accuracy(preds, gt, labelled_gt.to(device))
-    intersection, union = iou(preds, gt, labelled_gt.to(device))
+    intersection, union, iou_list = iou(preds, gt, labelled_gt.to(device), ret_iou_list=ret_iou_list)
 
-    return np.round(correct, 4), np.round(labelled, 4), np.round(intersection, 4), np.round(union, 4)
+    return np.round(correct, 4), np.round(labelled, 4), np.round(intersection, 4), np.round(union, 4), iou_list
 

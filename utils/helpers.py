@@ -33,27 +33,25 @@ def get_labelled_mask(mask):
 
 
 # https://github.com/sovit-123/CamVid-Image-Segmentation-using-FCN-ResNet50-with-PyTorch/blob/master/utils/helpers.py#L89
-def draw_seg_map(input, gt, output, epoch, path):
+def draw_seg_map(input, gt, output, epoch, batch, path):
     # render the map every 5 epochs
     if epoch % 5 != 0:
         return
     
+    path = os.path.join(path, f'b_{batch}') # new batch path
+    
     # original image is derived from input
     # prediction segmentation mask derived from output
-    num_classes = output[0].shape[0]
-    # set alpha, beta, gamma for image blending
-    a = 0.6
-    b = 1 - a
-    y = 0
+    num_classes = output[batch].shape[0]
         
     # COMPUTE SEG MAP
-    seg_map = output[0] # first batch
+    seg_map = output[batch]
     # find the index(class) with highest value on 0th dim
     # each pixel labelled with highest probable class
     seg_map = torch.argmax(seg_map.squeeze(), dim=0).cpu().numpy()
 
     # COMPUTE IMAGE
-    image = input[0] # first batch
+    image = input[batch]
     image = image.cpu().numpy()
     # untransform image
     image = np.transpose(image, (1, 2, 0))
@@ -88,11 +86,14 @@ def draw_seg_map(input, gt, output, epoch, path):
     
     # INITIALIZATION
     if epoch == 0:
+        # CREATE DIRECTORY
+        os.makedirs(path, exist_ok=True)
+        
         # ORIGINAL IMAGE
         cv2.imwrite(os.path.join(path, f'_original.jpg'), image)
 
         # GROUND TRUTH
-        gt = gt[0] # first batch
+        gt = gt[batch]
         gt = gt.cpu().numpy()
 
         gt_r = np.zeros_like(gt, dtype=np.uint8)
@@ -116,9 +117,13 @@ def draw_seg_map(input, gt, output, epoch, path):
         gt = cv2.cvtColor(gt, cv2.COLOR_RGB2BGR)
         
         cv2.imwrite(os.path.join(path, f'_gt.jpg'), gt)
+
+        # Linear Blend Operator
+        # set alpha, beta, gamma for image blending
+        a = 0.8
+        b = 1 - a
+        y = 0
         cv2.addWeighted(gt, a, image, b, y, gt)
         cv2.imwrite(os.path.join(path, f'_combined.jpg'), gt)
 
-    # linear blend operator
-    cv2.addWeighted(rgb_mask, a, image, b, y, image)
-    cv2.imwrite(os.path.join(path, f'smap_e{epoch}.jpg'), image)
+    cv2.imwrite(os.path.join(path, f'smap_e{epoch}.jpg'), rgb_mask)

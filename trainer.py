@@ -22,15 +22,16 @@ class Trainer:
     def __init__(self, model, 
                  train_dataset, train_dataloader,
                  val_dataset, val_dataloader,
+                 optimizer,
                  epochs=config.EPOCHS, lr=config.LR,
                  num_classes=len(config.CLASSES_TO_TRAIN)
                  ):
         self.model = model # do not use self.model for fit and validate
 
         self.FULL_GEN_PATH = os.path.join(self.GEN_PATH, self.model.name)
-        self.FULL_CHECKPOINT_PATH = os.path.join(self.GEN_PATH, self.model.name, self.CHECKPOINT_PATH)
-        self.FULL_SEGMAP_PATH = os.path.join(self.GEN_PATH, self.model.name, self.SEGMAP_PATH)
-        self.FULL_VIZ_PATH = os.path.join(self.GEN_PATH, self.model.name, self.VIZ_PATH)
+        self.FULL_CHECKPOINT_PATH = os.path.join(self.FULL_GEN_PATH, self.CHECKPOINT_PATH)
+        self.FULL_SEGMAP_PATH = os.path.join(self.FULL_GEN_PATH, self.SEGMAP_PATH)
+        self.FULL_VIZ_PATH = os.path.join(self.FULL_GEN_PATH, self.VIZ_PATH)
 
         for path in [self.FULL_GEN_PATH, self.FULL_CHECKPOINT_PATH, self.FULL_SEGMAP_PATH, self.FULL_VIZ_PATH]:
             os.makedirs(path, exist_ok=True)
@@ -43,7 +44,7 @@ class Trainer:
         self.epochs = epochs
         self.lr = lr
 
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
+        self.optimizer = optimizer
         self.criterion = nn.CrossEntropyLoss().cuda()
 
         self.num_classes = num_classes
@@ -84,7 +85,7 @@ class Trainer:
                 train_loss += loss.item()
 
                 # EVALUATE METRICS
-                train_C, train_L, train_I, train_U = eval_metrics(output.data, label.clone().detach(), self.num_classes)
+                train_C, train_L, train_I, train_U, _ = eval_metrics(output.data, label.clone().detach(), self.num_classes)
                 train_I = torch.from_numpy(train_I).to(device)
                 train_U = torch.from_numpy(train_U).to(device)
 
@@ -126,7 +127,7 @@ class Trainer:
         else:
             return t_loss, pix_acc, mIoU
 
-    def validate(self, model, epoch):
+    def validate(self, model, epoch, batches=[0]):
         model.eval()
 
         val_loss = 0
@@ -139,7 +140,6 @@ class Trainer:
 
         with torch.no_grad():
             progress_bar = tqdm(self.val_dataloader, total=n_iterations)
-
             for i, (input, label) in enumerate(progress_bar):
                 batch_counter += 1
 
@@ -155,7 +155,8 @@ class Trainer:
                 # ... draw segmentation map
                 # on last batch
                 if i == n_iterations - 1:
-                    draw_seg_map(input, label, output, epoch, path=self.FULL_SEGMAP_PATH)
+                    for batch in batches:
+                        draw_seg_map(input, label, output, epoch, batch=batch, path=self.FULL_SEGMAP_PATH)
 
                 # COMPUTE LOSS
                 loss = self.criterion(output, label)
@@ -164,7 +165,7 @@ class Trainer:
                 # loss
                 val_loss += loss.item()
 
-                val_C, val_L, val_I, val_U = eval_metrics(output.data, label.clone().detach(), self.num_classes)
+                val_C, val_L, val_I, val_U, _ = eval_metrics(output.data, label.clone().detach(), self.num_classes)
                 val_I = torch.from_numpy(val_I).to(device)
                 val_U = torch.from_numpy(val_U).to(device)
 
@@ -208,9 +209,11 @@ class Trainer:
             os.path.join(self.FULL_CHECKPOINT_PATH, f'e_{epoch}.pth')
         )
     
-    def save_model(self):
+    def save_model(self, metrics):
         print(f'SAVING MODEL')
-        torch.save(
-            self.model.state_dict(), 
+        torch.save({
+            'model_state_dict' : self.model.state_dict(),
+            'metrics_list' : metrics
+        }, 
             os.path.join(self.FULL_GEN_PATH, f'e_FINAL.pth')
         )
