@@ -15,68 +15,47 @@ def upsample(input, size):
 
 # PYRAMID PARSING MODULE
 class PSPM(nn.Module):
-    def __init__(self, in_dimensions, bins=(1, 2, 3, 6)):
+    def __init__(self, in_dimensions, bins=(1, 2, 3, 6), pool=nn.AdaptiveAvgPool2d):
         super(PSPM, self).__init__()
         out_dimensions = in_dimensions // len(bins)
 
-        self.feat1_2 = nn.Sequential(
-            nn.AdaptiveMaxPool2d(bins[0]),
-            nn.Conv2d(in_dimensions, out_dimensions, kernel_size=1)
-        )
+        self.pool = pool
 
-        self.feat1 = nn.Sequential(
-            nn.AdaptiveMaxPool2d(bins[0]),
-            nn.Conv2d(in_dimensions, out_dimensions, kernel_size=1),
-            nn.BatchNorm2d(out_dimensions, track_running_stats=False),
-            nn.ReLU(inplace=True)
-        )
-
-        self.feat2 = nn.Sequential(
-            nn.AdaptiveMaxPool2d(bins[1]),
+        self.features = [nn.Sequential(
+            self.pool(bin),
             nn.Conv2d(in_dimensions, out_dimensions, kernel_size=1),
             nn.BatchNorm2d(out_dimensions),
             nn.ReLU(inplace=True)
-        )
-
-        self.feat3 = nn.Sequential(
-            nn.AdaptiveMaxPool2d(bins[2]),
-            nn.Conv2d(in_dimensions, out_dimensions, kernel_size=1),
-            nn.BatchNorm2d(out_dimensions),
-            nn.ReLU(inplace=True)
-        )
-
-        self.feat4 = nn.Sequential(
-            nn.AdaptiveMaxPool2d(bins[3]),
-            nn.Conv2d(in_dimensions, out_dimensions, kernel_size=1),
-            nn.BatchNorm2d(out_dimensions),
-            nn.ReLU(inplace=True)
-        )
+        ) for bin in bins]
+        self.features = nn.ModuleList(self.features)
 
     def forward(self, x):
         x_size = x.size()[-2:]
 
-        if x.size()[0] != 1:
-            out1 = upsample(self.feat1(x), size=x_size)
-        else:
-            out1 = upsample(self.feat1_2(x), size=x_size)
-        out2 = upsample(self.feat2(x), size=x_size)
-        out3 = upsample(self.feat3(x), size=x_size)
-        out4 = upsample(self.feat4(x), size=x_size)
+        out = [x]
+        for feature in self.features:
+            out.append(upsample(feature(x), size=x_size))
         
-        return torch.cat([x, out1, out2, out3, out4], dim=1)
+        return torch.cat(out, dim=1)
     
 
 
 class PSPNet(nn.Module):
     name = 'pspnet'
 
-    def __init__(self, layers=50, bins=(1, 2, 3, 6), num_classes=32, use_deep_backbone=True, use_ppm=True, resize=(224, 224), pretrained=True):
+    def __init__(self, layers=50, bins=(1, 2, 3, 6), num_classes=32, use_deep_backbone=False, use_ppm=True, resize=(224, 224), pool=nn.AdaptiveMaxPool2d, pretrained=True):
         super(PSPNet, self).__init__()
+        if not use_ppm: 
+            self.name = f'{PSPNet.name}_noppm'
+        elif not pretrained:
+            self.name = f'{PSPNet.name}_notpt'
+        else:
+            self.name = f'{PSPNet.name}_b{"".join(str(bins))}_{"avg" if isinstance(pool, nn.AdaptiveAvgPool2d) else "max"}'
+
         self.use_deep_backbone = use_deep_backbone
         self.use_ppm = use_ppm
         self.resize = resize
-        self.dropout = 0.1
-        self.criterion = nn.CrossEntropyLoss(ignore_index=255).cuda()
+        self.criterion = nn.CrossEntropyLoss(ignore_index=255).to(device)
 
         if layers == 50: # so far only support resnet50
            backbone =  resnet50(pretrained=pretrained, use_deep_backbone=self.use_deep_backbone)
@@ -99,14 +78,13 @@ class PSPNet(nn.Module):
 
         feature_dims = 2048
         if use_ppm:
-            self.ppm = PSPM(in_dimensions=feature_dims, bins=bins)
+            self.ppm = PSPM(in_dimensions=feature_dims, bins=bins, pool=pool)
             feature_dims *= 2
 
         self.clf = nn.Sequential(
             nn.Conv2d(feature_dims, 512, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(512),
             nn.ReLU(inplace=True),
-            nn.Dropout2d(p=self.dropout),
             nn.Conv2d(512, num_classes, kernel_size=1)
         )
 
@@ -115,12 +93,10 @@ class PSPNet(nn.Module):
                 nn.Conv2d(1024, 256, kernel_size=3, padding=1, bias=False),
                 nn.BatchNorm2d(256),
                 nn.ReLU(inplace=True),
-                nn.Dropout2d(p=self.dropout),
                 nn.Conv2d(256, num_classes, kernel_size=1)
             )
 
     def forward(self, x, y=None):
-
         # backbone
         x = self.layer0(x)
         x = self.layer1(x)
@@ -147,5 +123,10 @@ class PSPNet(nn.Module):
         else:
             return x
             
-
-psp_model = PSPNet(layers=50, bins=(1, 2, 3, 6), use_deep_backbone=False, use_ppm=True, resize=(224, 224), pretrained=True).to(device)
+# PSP models
+psp_noppm = PSPNet(layers=50, use_ppm=False).to(device)
+psp_b1_avg = PSPNet(layers=50, bins=(1,), pool=nn.AdaptiveAvgPool2d).to(device)
+psp_b1_max = PSPNet(layers=50, bins=(1,), pool=nn.AdaptiveMaxPool2d).to(device)
+psp_b1236_avg = PSPNet(layers=50, bins=(1,2,3,6), pool=nn.AdaptiveAvgPool2d).to(device)
+psp_b1236_max = PSPNet(layers=50, bins=(1,2,3,6), pool=nn.AdaptiveMaxPool2d).to(device)
+psp_notpretrained = PSPNet(layers=50, pretrained=False).to(device)

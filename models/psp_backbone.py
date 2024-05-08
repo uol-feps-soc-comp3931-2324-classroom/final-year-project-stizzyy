@@ -46,7 +46,7 @@ class Bottleneck(nn.Module):
 
 
 class Resnet(nn.Module):
-    def __init__(self, block, layers, num_classes=1000, use_deep_backbone=True):
+    def __init__(self, block, layers, num_classes=1000, use_deep_backbone=False):
         # num classes = 1000 as pretrained on ImageNet
         super(Resnet, self).__init__()
         self.use_deep_backbone = use_deep_backbone
