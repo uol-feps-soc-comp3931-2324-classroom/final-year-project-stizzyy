@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-#import seaborn as sns
+import pandas as pd
 import os
 
 
@@ -78,3 +78,23 @@ def create_metrics_viz(metrics_list : list, epochs, trainer):
     visualize_pixacc(metrics_list[1], epochs, model_name, path)
     visualize_mIoU(metrics_list[2], epochs, model_name, path)
     plt.close('all')
+
+
+
+def ioulist_to_csv(iou_lists, path):
+    ious_list= [[], []]
+    for i, iou_list in enumerate(iou_lists): # [fcresnet, pspnet]
+        for inter, union in iou_list:
+            iou = 1.0 * inter / (np.spacing(1) + union)
+            ious_list[i].append(iou)
+    
+    ious_list = np.reshape(ious_list, (32, -1))
+    df = pd.DataFrame(ious_list, columns=['FCN-Resnet50', 'PSPNet'])
+    df.to_csv(path)
+
+
+if __name__ == '__main__':
+    a = np.random.randn(32, 2)
+    b = np.random.randn(32, 2)
+
+    ioulist_to_csv([a,b])

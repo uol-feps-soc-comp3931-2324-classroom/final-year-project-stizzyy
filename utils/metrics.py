@@ -1,5 +1,7 @@
 import torch
 import numpy as np
+import os
+import pandas as pd
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -57,3 +59,12 @@ def eval_metrics(output, gt, num_classes=32, ret_iou_list=False):
 
     return np.round(correct, 4), np.round(labelled, 4), np.round(intersection, 4), np.round(union, 4), iou_list
 
+
+
+def load_metrics_from_file(path):
+    return torch.load(os.path.join(path, 'e_FINAL.pth'))['metrics_list']
+
+
+def store_metrics_from_list(list, path):
+    df = pd.DataFrame(list)
+    df.to_csv(path)

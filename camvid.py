@@ -38,7 +38,7 @@ class CamVid(Dataset):
     def __init__(self, root_path, split, transform=True):
         self.root_path = root_path
 
-        assert split in ['train', 'val']
+        assert split in ['train', 'val', 'test']
         self.split = split
         self.files = parse_images(root_path, self.split)
         
@@ -74,3 +74,6 @@ train_dataloader = DataLoader(train_dataset, batch_size=config.BATCH_SIZE)
 
 val_dataset = CamVid(config.ROOT_PATH, 'val')
 val_dataloader = DataLoader(val_dataset, batch_size=config.BATCH_SIZE)
+
+test_dataset = CamVid(config.ROOT_PATH, 'test')
+test_dataloader = DataLoader(test_dataset, batch_size=config.BATCH_SIZE)

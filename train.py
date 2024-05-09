@@ -13,19 +13,23 @@ from models.pspnet import PSPNet
 
 
 optimizers = {
-    'adam' : [ optim.Adam, {'weight_decay' : 0.0001}],
-    'sgd' : [ optim.SGD, {'weight_decay' : 0.0001, 'momentum' : 0.9}]
+    'adam' : [ optim.Adam, {'weight_decay' : 0.0001 }],
+    'sgd' : [ optim.SGD, {'weight_decay' : 0.0001, 'momentum' : 0.9 }]
 }
 
 schedulers = {
-    'exponential_g07' : [ optim.lr_scheduler.LinearLR, { 'gamma' : 0.7}],
-    'exponential_g09' : [ optim.lr_scheduler.LinearLR, { 'gamma' : 0.9}]
+    'exponential_g07' : [ optim.lr_scheduler.ExponentialLR, { 'gamma' : 0.7 }],
+    'exponential_g095' : [ optim.lr_scheduler.ExponentialLR, { 'gamma' : 0.95 }]
 }
 
 
-def train_and_validate(model, opt, sch):
-    optimizer = optim.Adam(model.parameter(), lr=config.LR)
-    scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
+def train_and_validate(model, opt='adam', sch='exponential_g095'):
+    opt_cls, sch_cls = optimizers[opt][0], schedulers[sch][0] # classes
+    opt_p, sch_p = optimizers[opt][1], schedulers[sch][1] # parameters
+
+    optimizer = opt_cls(model.parameters(), lr=config.LR, **opt_p)
+    scheduler = sch_cls(optimizer, **sch_p)
+
     trainer = Trainer(model, train_dataset, train_dataloader, val_dataset, val_dataloader, optimizer=optimizer)
 
     # warm up device
@@ -81,12 +85,8 @@ def train_and_validate(model, opt, sch):
 
 if __name__ == '__main__':
     # training and validating PSPNet variants
-    train_and_validate(psp_noppm)
-    train_and_validate(psp_notpretrained)
-    train_and_validate(psp_b1_avg)
-    train_and_validate(psp_b1_max)
-    train_and_validate(psp_b1_avg)
-    train_and_validate(psp_b1236_max)
-    train_and_validate(psp_b1236_avg)
+    #train_and_validate(psp_b1236_avg)
 
-    # training and validating one PSPNet with different training parametersaaa
+    # training and validating one PSPNet with different training parameters
+    train_and_validate(psp_b1236_max)
+    train_and_validate(psp_b1236_max, opt='exponential_g07')

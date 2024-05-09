@@ -43,14 +43,19 @@ class PSPM(nn.Module):
 class PSPNet(nn.Module):
     name = 'pspnet'
 
-    def __init__(self, layers=50, bins=(1, 2, 3, 6), num_classes=32, use_deep_backbone=False, use_ppm=True, resize=(224, 224), pool=nn.AdaptiveMaxPool2d, pretrained=True):
+    def __init__(self, layers=50, bins=(1, 2, 3, 6), num_classes=32, use_deep_backbone=False, use_ppm=True, resize=(224, 224), use_max_pool=True, pretrained=True):
         super(PSPNet, self).__init__()
+        if use_max_pool:
+            pool = nn.AdaptiveMaxPool2d
+        else:
+            pool = nn.AdaptiveAvgPool2d
+
         if not use_ppm: 
             self.name = f'{PSPNet.name}_noppm'
         elif not pretrained:
             self.name = f'{PSPNet.name}_notpt'
         else:
-            self.name = f'{PSPNet.name}_b{"".join(str(bins))}_{"avg" if isinstance(pool, nn.AdaptiveAvgPool2d) else "max"}'
+            self.name = f'{PSPNet.name}_b{"".join(map(str, bins))}_{"avg" if not use_max_pool else "max"}'
 
         self.use_deep_backbone = use_deep_backbone
         self.use_ppm = use_ppm
@@ -125,8 +130,8 @@ class PSPNet(nn.Module):
             
 # PSP models
 psp_noppm = PSPNet(layers=50, use_ppm=False).to(device)
-psp_b1_avg = PSPNet(layers=50, bins=(1,), pool=nn.AdaptiveAvgPool2d).to(device)
-psp_b1_max = PSPNet(layers=50, bins=(1,), pool=nn.AdaptiveMaxPool2d).to(device)
-psp_b1236_avg = PSPNet(layers=50, bins=(1,2,3,6), pool=nn.AdaptiveAvgPool2d).to(device)
-psp_b1236_max = PSPNet(layers=50, bins=(1,2,3,6), pool=nn.AdaptiveMaxPool2d).to(device)
+psp_b1_avg = PSPNet(layers=50, bins=(1,), use_max_pool=False).to(device)
+psp_b1_max = PSPNet(layers=50, bins=(1,), use_max_pool=True).to(device)
+psp_b1236_avg = PSPNet(layers=50, bins=(1,2,3,6), use_max_pool=False).to(device)
+psp_b1236_max = PSPNet(layers=50, bins=(1,2,3,6), use_max_pool=True).to(device)
 psp_notpretrained = PSPNet(layers=50, pretrained=False).to(device)
