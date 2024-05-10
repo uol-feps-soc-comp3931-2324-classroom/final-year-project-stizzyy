@@ -70,18 +70,11 @@ class Trainer:
             self.optimizer.zero_grad()
 
             with torch.autograd.set_detect_anomaly(True):
-                if isinstance(model, FCN):
-                    output = model(input)['out']
 
-                    # COMPUTE LOSS 
-                    loss = self.criterion(output, label)
-                
-                elif isinstance(model, PSPNet):
-                    output, loss, aux_loss = model(input, label.long())
+                output, loss, aux_loss = model(input, label.long())
 
-                    # COMPUTE LOSS
-                    train_aux_loss += aux_loss.item()
-
+                # COMPUTE LOSS
+                train_aux_loss += aux_loss.item()
                 train_loss += loss.item()
 
                 # EVALUATE METRICS
@@ -149,9 +142,7 @@ class Trainer:
                 self.optimizer.zero_grad()
 
                 output = model(input)
-                if isinstance(model, FCN):
-                    output = output['out']
-
+                
                 # ... draw segmentation map
                 # on last batch
                 if i == n_iterations - 1:

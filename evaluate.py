@@ -6,25 +6,19 @@ from albumentations import Compose, Resize, Normalize
 from tqdm import tqdm
 import os
 import pandas as pd
-
 from PIL import Image
-from models.fcn_resnet50 import fcn_resnet_model
-from models.pspnet import psp_b1_max, PSPNet
+
+from models.pspnet import *
 from camvid import test_dataloader, test_dataset
-from utils.metrics import eval_metrics, load_metrics_from_file, store_metrics_from_list
-from utils.visualization import ioulist_to_csv
+from utils.helpers import draw_test_seg_map
+from utils.metrics import eval_metrics, load_metrics_from_file
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 def test_model(model, dataset, dataloader, path='gen'):
-    is_fcn = True
-    criterion = nn.CrossEntropyLoss().to(device)
+    criterion = nn.CrossEntropyLoss(ignore_index=255).to(device)
 
-    if isinstance(model, PSPNet):
-        is_fcn = False
-        criterion = nn.CrossEntropyLoss(ignore_index=255).to(device)
-
-    loaded_dict = torch.load(os.path.join(path, f'{model.name}/e_FINAL.pth'))
+    loaded_dict = torch.load(os.path.join(path, model.name, 'e_FINAL.pth'))
     model.load_state_dict(loaded_dict['model_state_dict'])
     model.eval().to(device)
 
@@ -38,19 +32,24 @@ def test_model(model, dataset, dataloader, path='gen'):
         n_iterations = int(len(dataset)/dataloader.batch_size)
         progress_bar = tqdm(dataloader, total=n_iterations)
 
+        batch_counter = 0
+
         for i, (data, label) in enumerate(progress_bar):
+            batch_counter += 1
+
             data, label = data.to(device), label.to(device)
 
-
             out = model(data)
-            if is_fcn:
-                out = out['out']
             
             loss = criterion(out, label.long())
-
             acc_loss += loss.item()
 
-            c, l, i, u, iou_list = eval_metrics(out, label.clone().detach(), ret_iou_list=True)
+            # segmentation mask
+            if i == n_iterations - 1:
+                draw_test_seg_map(out, data, label, model, path, batch=0)
+                
+            # EVALUATE METRICS
+            c, l, i, u, iou_list = eval_metrics(out.data, label.clone().detach(), ret_iou_list=True)
             i, u = torch.from_numpy(i).to(device), torch.from_numpy(u).to(device)
 
             # accummulate pixel accuracy
@@ -64,103 +63,61 @@ def test_model(model, dataset, dataloader, path='gen'):
             # accummulate IoU list
             acc_iou_list += iou_list
 
+            progress_bar.set_description(f'TESTING {model.name}--\t loss : {loss:.3f} | pix_acc : {(c/l):.3f} | miou : {(1.0 * i/(np.spacing(1) + u)).mean():.3f}')
+
     # average loss
-    loss = acc_loss / n_iterations
+    loss = acc_loss / batch_counter
 
     # pixel accuracy
     pix_acc = 1.0 * acc_correct / (np.spacing(1) + acc_labelled)
 
     # miou
     iou = 1.0 * acc_inter / (np.spacing(1) +  acc_union)
+    miou = iou.mean().cpu().numpy().min()
 
     # save iou list as .csv file
-    iou_list = np.array(acc_iou_list)
-    df = pd.DataFrame(iou_list, index=[model.name])
-    df.to_csv(os.path.join(path, model.name))
+    iou_list = np.array(acc_iou_list).reshape(-1, 32)
+    df = pd.DataFrame(iou_list, index=['intersection', 'union'])
+    df.to_csv(os.path.join(path, model.name, 'iou_list.csv'))
 
-            
-def test_models(models, dataset, dataloader, path='gen'):
-    fcresnet, pspnet = models[0], models[1]
-
-    fcresnet.load_state_dict(torch.load(os.path.join(path, f'{models[0].name}/e_FINAL.pth')))
-    pspnet.load_state_dict(torch.load(os.path.join(path, f'{models[1].name}/e_FINAL.pth')))
-
-    fcresnet.eval().to(device)
-    pspnet.eval().to(device)
-
-    criterion = nn.CrossEntropyLoss().to(device)
-    criterion_ignore = nn.CrossEntropyLoss(ignore_index=255).to(device)
-
-    fcrn_acc_loss, pspn_acc_loss = 0, 0
-    fcrn_acc_correct, fcrn_acc_labelled, pspn_acc_correct, pspn_acc_labelled = 0, 0, 0, 0
-    fcrn_acc_inter, fcrn_acc_union, pspn_acc_inter, pspn_acc_union = 0, 0, 0, 0
-
-    fcrn_iou_acc_list = np.zeros((32, 2), dtype=np.float32)
-    pspn_iou_acc_list = np.zeros((32, 2), dtype=np.float32)
-
-    with torch.no_grad():
-        n_iterations = int(len(dataset)/dataloader.batch_size)
-        progress_bar = tqdm(dataloader, total=n_iterations)
-
-        for i, (data, label) in enumerate(progress_bar):
-            data, label = data.to(device), label.to(device)
-
-            out_fcresnet = fcresnet(data)['out']
-            fcresnet_loss = criterion(out_fcresnet, label.long())
-
-            out_pspnet = pspnet(data)
-            pspnet_loss = criterion_ignore(out_pspnet, label.long())
-
-            fcrn_acc_loss += fcresnet_loss.item()
-            pspn_acc_loss += pspnet_loss.item()
-
-            fcrn_C, fcrn_L, fcrn_I, fcrn_U, fcrn_iou_list = eval_metrics(out_fcresnet.data, label.clone().detach(), ret_iou_list=True)
-            fcrn_I, fcrn_U = torch.from_numpy(fcrn_I).to(device), torch.from_numpy(fcrn_U).to(device)
-            pspn_C, pspn_L, pspn_I, pspn_U, pspn_iou_list = eval_metrics(out_pspnet.data, label.clone().detach(), ret_iou_list=True)
-            pspn_I, pspn_U = torch.from_numpy(pspn_I).to(device), torch.from_numpy(pspn_U).to(device)
-
-            # accummulate pixel accuracy
-            fcrn_acc_correct += fcrn_C
-            fcrn_acc_labelled += fcrn_L
-
-            pspn_acc_correct += pspn_C
-            pspn_acc_labelled += pspn_L
-
-            # accummulate IoU
-            fcrn_acc_inter += fcrn_I
-            fcrn_acc_union += fcrn_U
-
-            pspn_acc_inter += pspn_I
-            pspn_acc_union += pspn_U
-
-            # accummulate IoU list
-            fcrn_iou_acc_list += fcrn_iou_list
-            pspn_iou_acc_list += pspn_iou_list
-
-
-        # average loss
-        fcrn_loss = fcrn_acc_loss / n_iterations
-        pspn_loss = pspn_acc_loss / n_iterations
-
-        # pixel accuracy
-        fcrn_pix_accu = 1.0 * fcrn_acc_correct / (np.spacing(1) + fcrn_acc_labelled)
-        pspn_pix_accu = 1.0 * pspn_acc_correct / (np.spacing(1) + pspn_acc_labelled)
-
-        # mean IoU
-        fcrn_iou = 1.0 * fcrn_acc_inter / (np.spacing(1) +  fcrn_acc_union)
-        pspn_iou = 1.0 * pspn_acc_inter / (np.spacing(1) + pspn_acc_union)
-        fcrn_miou, pspn_miou = fcrn_iou.mean(), pspn_iou.mean()
-
-        iou_list = [fcrn_iou_acc_list, pspn_iou_acc_list]
-        ioulist_to_csv(iou_list, path)
-
+    return loss, pix_acc, miou
         
 
+def test_models(models):
+    
+    metrics = {}
+
+    for model in models:
+        loss, pix_acc, miou = test_model(model, test_dataset, test_dataloader, path='psp_variants')
+        metrics[model.name] = [loss, pix_acc, miou]
+    
+   
+    df = pd.DataFrame(metrics)
+    print(df)
+
+def get_trainval_metrics(models, path='psp_variants'):
+    metrics_dict = {}
+
+    for model in models:
+        metrics = load_metrics_from_file(os.path.join(path, model.name))
+        
+        loss, pix_acc, miou = metrics[0], metrics[1], metrics[2]
+
+        t_metrics, v_metrics = [], []
+
+        for metric in [loss, pix_acc, miou]:
+            t_metrics.append(metric['train'][-1])
+            v_metrics.append(metric['val'][-1])
+       
+
+        metrics_dict[f'{model.name.removeprefix("pspnet_")}_train'] = t_metrics
+        metrics_dict[f'{model.name.removeprefix("pspnet_")}_val'] = v_metrics
+
+    df = pd.DataFrame(metrics_dict)
+    df.to_csv(os.path.join(path, 'trainval_metrics.csv'))
+
 if __name__ == '__main__':
-    fm = fcn_resnet_model
-    psp = psp_b1_max
+    models = [base, psp_notpretrained, psp_b1_avg, psp_b1_max, psp_b1236_avg, psp_b1236_max]
 
-    metrics = load_metrics_from_file('psp_variants/pspnet_b1_max/e_FINAL.pth')
-
-    #test_model(psp, test_dataset, test_dataloader, path='gen')
-    #test_models([fm, psp], test_dataset, test_dataloader, path='gen_gamma0.7')
+    test_models(models)
+    get_trainval_metrics(models)

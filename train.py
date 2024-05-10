@@ -7,8 +7,7 @@ from utils.visualization import create_metrics_viz
 from camvid import train_dataset, train_dataloader
 from camvid import val_dataset, val_dataloader
 from trainer import Trainer, device
-from models.fcn_resnet50 import fcn_resnet_model
-from models.pspnet import psp_noppm, psp_notpretrained, psp_b1_avg, psp_b1_max, psp_b1236_avg, psp_b1236_max
+from models.pspnet import base, psp_notpretrained, psp_b1_avg, psp_b1_max, psp_b1236_avg, psp_b1236_max
 from models.pspnet import PSPNet
 
 
@@ -19,7 +18,8 @@ optimizers = {
 
 schedulers = {
     'exponential_g07' : [ optim.lr_scheduler.ExponentialLR, { 'gamma' : 0.7 }],
-    'exponential_g095' : [ optim.lr_scheduler.ExponentialLR, { 'gamma' : 0.95 }]
+    'exponential_g095' : [ optim.lr_scheduler.ExponentialLR, { 'gamma' : 0.95 }],
+    'poly' : [optim.lr_scheduler.PolynomialLR, { 'total_iters' : config.EPOCHS, 'power' : 0.09}]
 }
 
 
@@ -85,8 +85,4 @@ def train_and_validate(model, opt='adam', sch='exponential_g095'):
 
 if __name__ == '__main__':
     # training and validating PSPNet variants
-    #train_and_validate(psp_b1236_avg)
-
-    # training and validating one PSPNet with different training parameters
     train_and_validate(psp_b1236_max)
-    train_and_validate(psp_b1236_max, opt='exponential_g07')

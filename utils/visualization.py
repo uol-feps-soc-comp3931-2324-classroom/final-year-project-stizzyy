@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import os
+import dataframe_image as dfi
 
 
 def visualize_loss(loss : dict, epochs, model_name, path):
@@ -92,6 +93,9 @@ def ioulist_to_csv(iou_lists, path):
     df = pd.DataFrame(ious_list, columns=['FCN-Resnet50', 'PSPNet'])
     df.to_csv(path)
 
+
+def display_best_metrics():
+    pass
 
 if __name__ == '__main__':
     a = np.random.randn(32, 2)
