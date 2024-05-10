@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from models.psp_backbone import resnet50
+from models.resnet import resnet50
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -43,7 +43,7 @@ class PSPM(nn.Module):
 class PSPNet(nn.Module):
     name = 'pspnet'
 
-    def __init__(self, layers=50, bins=(1, 2, 3, 6), num_classes=32, use_deep_backbone=False, use_ppm=True, resize=(224, 224), use_max_pool=True, pretrained=True):
+    def __init__(self, layers=50, bins=(1, 2, 3, 6), num_classes=32, use_deep_backbone=False, use_ppm=True, resize=(224, 224), use_max_pool=True, dropout=0.1, pretrained=True):
         super(PSPNet, self).__init__()
         if use_max_pool:
             pool = nn.AdaptiveMaxPool2d
@@ -90,6 +90,7 @@ class PSPNet(nn.Module):
             nn.Conv2d(feature_dims, 512, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(512),
             nn.ReLU(inplace=True),
+            #nn.Dropout2d(p=dropout),
             nn.Conv2d(512, num_classes, kernel_size=1)
         )
 
@@ -98,6 +99,7 @@ class PSPNet(nn.Module):
                 nn.Conv2d(1024, 256, kernel_size=3, padding=1, bias=False),
                 nn.BatchNorm2d(256),
                 nn.ReLU(inplace=True),
+                #nn.Dropout2d(p=dropout),
                 nn.Conv2d(256, num_classes, kernel_size=1)
             )
 
@@ -118,7 +120,7 @@ class PSPNet(nn.Module):
 
         # resizing to 224x224 by default
         x = F.interpolate(x, size=self.resize, mode='bilinear', align_corners=True)
-
+        
         if self.training:
             aux = self.aux_clf(x_aux)
             aux = F.interpolate(aux, size=self.resize, mode='bilinear', align_corners=True)  
@@ -129,7 +131,7 @@ class PSPNet(nn.Module):
             return x
             
 # PSP models
-psp_noppm = PSPNet(layers=50, use_ppm=False).to(device)
+base = PSPNet(layers=50, use_ppm=False).to(device)
 psp_b1_avg = PSPNet(layers=50, bins=(1,), use_max_pool=False).to(device)
 psp_b1_max = PSPNet(layers=50, bins=(1,), use_max_pool=True).to(device)
 psp_b1236_avg = PSPNet(layers=50, bins=(1,2,3,6), use_max_pool=False).to(device)
